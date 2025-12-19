@@ -7,6 +7,7 @@ const OrderItemSchema = new Schema(
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     image: { type: String },
+    size: { type: String }, // Lưu kích thước khách chọn
   },
   { _id: false }
 );
