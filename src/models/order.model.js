@@ -24,7 +24,12 @@ const OrderSchema = new Schema(
     customerAddress: { type: String },
     paymentMethod: { type: String, enum: ["cod", "banking", "momo"], default: "cod" },
     note: { type: String },
-    status: { type: String, enum: ["pending", "paid", "canceled"], default: "pending" },
+    // 🔥 SỬA: Thêm 'shipping' và 'completed' vào danh sách cho phép
+    status: { 
+      type: String, 
+      enum: ["pending", "paid", "canceled", "shipping", "completed"], 
+      default: "pending" 
+    },
   },
   { timestamps: true, versionKey: false }
 );

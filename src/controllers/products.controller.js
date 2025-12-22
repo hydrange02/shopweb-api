@@ -1,59 +1,93 @@
-const slugify = require("slugify");
+// src/controllers/products.controller.js
 const { Product } = require("../models/product.model");
 
-function makeSlug(input) {
-  return slugify(input, { lower: true, strict: true, locale: "vi" });
+// Lấy danh sách (có lọc & phân trang)
+async function getProducts(req, res, next) {
+  try {
+    const page = Math.max(parseInt(req.query.page || "1"), 1);
+    const limit = parseInt(req.query.limit || "12");
+    const { category, q, minPrice, maxPrice, sort } = req.query;
+
+    const filter = {};
+    if (category) filter.category = category;
+    if (q) filter.title = { $regex: q, $options: "i" };
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = parseInt(minPrice);
+      if (maxPrice) filter.price.$lte = parseInt(maxPrice);
+    }
+
+    let sortOption = { createdAt: -1 };
+    if (sort === "price_asc") sortOption = { price: 1 };
+    if (sort === "price_desc") sortOption = { price: -1 };
+
+    const [total, products] = await Promise.all([
+      Product.countDocuments(filter),
+      Product.find(filter)
+        .sort(sortOption)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    // 🔥 LOGIC QUAN TRỌNG: Kiểm tra xem còn trang sau không
+    const hasNext = page * limit < total;
+
+    res.json({ 
+      ok: true, 
+      data: products, 
+      page, 
+      limit, 
+      total,
+      hasNext // <-- Frontend cần biến này để bật sáng nút "Tiếp theo"
+    });
+  } catch (err) { next(err); }
 }
 
-function pickUpdatable(body) {
-  const allow = ["title", "slug", "price", "images", "stock", "rating", "brand", "variants", "description", "category"];
-  const out = {};
-  for (const k of allow) if (k in body) out[k] = body[k];
-  return out;
+// Lấy chi tiết 1 sản phẩm
+async function getProductBySlug(req, res, next) {
+  try {
+    const { slug } = req.params;
+    let product = await Product.findOne({ slug }).lean();
+    if (!product && slug.match(/^[0-9a-fA-F]{24}$/)) {
+      product = await Product.findById(slug).lean();
+    }
+
+    if (!product) return res.status(404).json({ ok: false, error: "Not found" });
+    res.json({ ok: true, product });
+  } catch (err) { next(err); }
 }
 
+// Thêm sản phẩm
 async function createProduct(req, res, next) {
   try {
-    const payload = req.body;
-    const slug = payload.slug ? payload.slug : makeSlug(payload.title);
-    const doc = await Product.create({ ...payload, slug });
-    return res.status(201).json({ ok: true, product: doc.toJSON() });
-  } catch (err) {
-    if (err && err.code === 11000) {
-      err.status = 409; // Conflict: duplicate slug
-      err.message = "Duplicate slug";
+    const body = req.body;
+    if (!body.slug && body.title) {
+       body.slug = body.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
     }
-    return next(err);
-  }
+    const product = await Product.create(body);
+    res.status(201).json({ ok: true, product });
+  } catch (err) { next(err); }
 }
 
+// Sửa sản phẩm
 async function updateProduct(req, res, next) {
   try {
     const { id } = req.params;
-    const patch = pickUpdatable(req.body);
-    if (patch.title && !patch.slug) patch.slug = makeSlug(patch.title);
-
-    const updated = await Product.findByIdAndUpdate(id, patch, { new: true, runValidators: true });
-    if (!updated) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Product not found" } });
-    return res.json({ ok: true, product: updated.toJSON() });
-  } catch (err) {
-    if (err && err.code === 11000) {
-      err.status = 409;
-      err.message = "Duplicate slug";
-    }
-    return next(err);
-  }
+    const product = await Product.findByIdAndUpdate(id, req.body, { new: true });
+    if (!product) return res.status(404).json({ ok: false, error: "Product not found" });
+    res.json({ ok: true, product });
+  } catch (err) { next(err); }
 }
 
+// Xóa sản phẩm
 async function deleteProduct(req, res, next) {
   try {
     const { id } = req.params;
-    const del = await Product.findByIdAndDelete(id);
-    if (!del) return res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Product not found" } });
-    return res.json({ ok: true, deletedId: id });
-  } catch (err) {
-    return next(err);
-  }
+    const product = await Product.findByIdAndDelete(id);
+    if (!product) return res.status(404).json({ ok: false, error: "Product not found" });
+    res.json({ ok: true, deletedId: id });
+  } catch (err) { next(err); }
 }
 
-module.exports = { createProduct, updateProduct, deleteProduct };
+module.exports = { getProducts, getProductBySlug, createProduct, updateProduct, deleteProduct };

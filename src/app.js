@@ -7,7 +7,7 @@ const morgan = require("morgan");
 const authRouter = require("./routes/auth.router");
 const productsRouter = require("./routes/products.router");
 const ordersRouter = require("./routes/orders.router");
-
+const cartRouter = require("./routes/cart.router");
 const app = express();
 
 // 1. Cấu hình bảo mật và Middleware cơ bản
@@ -24,6 +24,7 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/products", productsRouter);
 app.use("/api/v1/orders", ordersRouter);
+app.use("/api/v1/cart", cartRouter);
 
 // 3. Các route tiện ích khác (Health check)
 const utilityRouter = express.Router();

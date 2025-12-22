@@ -1,5 +1,11 @@
+// src/routes/orders.router.js
 const express = require("express");
-const { createOrder, getOrderById, listOrders } = require("../controllers/orders.controller");
+const { 
+  createOrder, 
+  getOrderById, 
+  listOrders, 
+  updateOrderStatus // Import hàm mới
+} = require("../controllers/orders.controller");
 const { createOrderSchema } = require("../schemas/order.dto");
 const { requireAuth, requireRole } = require("../middlewares/auth");
 
@@ -8,6 +14,13 @@ const validate = (schema) => (req, _res, next) => { try { req.body = schema.pars
 
 router.post("/", validate(createOrderSchema), (req, res, next) => Promise.resolve(createOrder(req, res, next)).catch(next));
 router.get("/:id", (req, res, next) => Promise.resolve(getOrderById(req, res, next)).catch(next));
+
+// Admin Routes
 router.get("/", requireAuth, requireRole("admin"), (req, res, next) => Promise.resolve(listOrders(req, res, next)).catch(next));
+
+// 🔥 MỚI: Route cập nhật trạng thái
+router.put("/:id/status", requireAuth, requireRole("admin"), (req, res, next) => 
+  Promise.resolve(updateOrderStatus(req, res, next)).catch(next)
+);
 
 module.exports = router;
