@@ -145,6 +145,48 @@ async function me(req, res) {
   });
 }
 
+async function getMe(req, res, next) {
+  try {
+    // req.user.sub lấy từ middleware requireAuth
+    const user = await User.findById(req.user.sub).select("-password"); // Không trả về password
+    if (!user) {
+        return res.status(404).json({ ok: false, error: "User not found" });
+    }
+    return res.json({ ok: true, user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function changePassword(req, res, next) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user.sub; // Lấy từ token
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ ok: false, message: "Vui lòng nhập đầy đủ thông tin" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ ok: false, message: "User không tồn tại" });
+
+    // Kiểm tra mật khẩu cũ
+    const isMatch = await comparePassword(oldPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ ok: false, message: "Mật khẩu hiện tại không chính xác" });
+    }
+
+    // Mã hóa và lưu mật khẩu mới
+    const newPasswordHash = await hashPassword(newPassword);
+    user.passwordHash = newPasswordHash;
+    await user.save();
+
+    return res.json({ ok: true, message: "Đổi mật khẩu thành công" });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register: sendRegisterOTP,
   confirmRegister,
@@ -152,4 +194,5 @@ module.exports = {
   resetPassword,
   login,
   me,
+  changePassword,
 };

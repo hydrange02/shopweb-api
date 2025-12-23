@@ -22,4 +22,20 @@ function requireRole(role) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+function identifyUser(req, res, next) {
+  const h = req.headers.authorization || "";
+  const [, token] = h.split(" ");
+  
+  if (token) {
+    try {
+      const payload = verifyToken(token);
+      req.user = payload; // Gắn thông tin user vào request
+    } catch (e) {
+      // Token lỗi hoặc hết hạn thì bỏ qua, coi như khách vãng lai
+      console.warn("Invalid token in optional auth, treating as guest");
+    }
+  }
+  next();
+}
+
+module.exports = { requireAuth, requireRole, identifyUser };

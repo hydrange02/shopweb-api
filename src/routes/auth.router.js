@@ -5,7 +5,8 @@ const {
   login, 
   me, 
   forgotPassword, 
-  resetPassword 
+  resetPassword,
+  changePassword,
 } = require("../controllers/auth.controller");
 const { registerSchema, loginSchema } = require("../schemas/auth.dto");
 const { requireAuth } = require("../middlewares/auth");
@@ -46,6 +47,10 @@ router.post("/reset-password", (req, res, next) =>
 // --- ROUTES CƠ BẢN ---
 router.post("/login", validate(loginSchema), (req, res, next) => 
   Promise.resolve(login(req, res, next)).catch(next)
+);
+
+router.post("/change-password", requireAuth, (req, res, next) => 
+  Promise.resolve(changePassword(req, res, next)).catch(next)
 );
 
 router.get("/me", requireAuth, me);

@@ -1,3 +1,4 @@
+// src/models/order.model.js
 const { Schema, model, Types } = require("mongoose");
 
 const OrderItemSchema = new Schema(
@@ -7,13 +8,16 @@ const OrderItemSchema = new Schema(
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     image: { type: String },
-    size: { type: String }, // Lưu kích thước khách chọn
+    size: { type: String },
   },
   { _id: false }
 );
 
 const OrderSchema = new Schema(
   {
+    // 🔥 MỚI: Liên kết với User (nếu đã đăng nhập)
+    userId: { type: Types.ObjectId, ref: "User", index: true },
+    
     items: { type: [OrderItemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
     shippingFee: { type: Number, default: 0, min: 0 },
@@ -24,7 +28,7 @@ const OrderSchema = new Schema(
     customerAddress: { type: String },
     paymentMethod: { type: String, enum: ["cod", "banking", "momo"], default: "cod" },
     note: { type: String },
-    // 🔥 SỬA: Thêm 'shipping' và 'completed' vào danh sách cho phép
+    
     status: { 
       type: String, 
       enum: ["pending", "paid", "canceled", "shipping", "completed"], 
