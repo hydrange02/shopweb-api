@@ -8,6 +8,6 @@ const PORT = process.env.PORT || 4000;
   bindMongoLogs();
   await connectMongo();
   app.listen(PORT, () => {
-    console.log(`▶ Shoply API listening at http://localhost:${PORT}`);
+    console.log(`▶ hydrange API listening at http://localhost:${PORT}`);
   });
 })();

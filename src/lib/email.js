@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 
 async function sendOTPEmail(email, otp, subject) {
   const brandColor = "#000000"; // Màu chủ đạo (Đen sang trọng)
-  const logoText = "HYDRANGE";   // Tên thương hiệu
+  const logoText = "hydrange";   // Tên thương hiệu
 
   const htmlTemplate = `
     <!DOCTYPE html>
@@ -75,7 +75,7 @@ async function sendOTPEmail(email, otp, subject) {
 
             </table>
             <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 20px;">
-              Sent with ❤️ from Hydrange Team
+              Sent with ❤️ from hydrange Team
             </p>
 
           </td>
@@ -87,7 +87,7 @@ async function sendOTPEmail(email, otp, subject) {
   `;
 
   const mailOptions = {
-    from: `"Hydrange Support" <${process.env.EMAIL_USER}>`,
+    from: `"hydrange Support" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: subject,
     html: htmlTemplate,

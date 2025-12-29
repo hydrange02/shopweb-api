@@ -31,7 +31,7 @@ const utilityRouter = express.Router();
 utilityRouter.get("/health", (req, res) => {
   res.status(200).json({
     ok: true,
-    service: "shoply-api",
+    service: "hydrange-api",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
@@ -40,7 +40,7 @@ app.use("/api/v1", utilityRouter);
 
 // Trang chủ API
 app.get("/", (req, res) => {
-  res.json({ ok: true, service: "shoply-api", version: "v1" });
+  res.json({ ok: true, service: "hydrange-api", version: "v1" });
 });
 
 // 4. Xử lý lỗi 404 (Khi không khớp bất kỳ route nào bên trên)

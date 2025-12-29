@@ -5,7 +5,7 @@ const { hashPassword } = require("../lib/auth");
 
 async function run() {
   await connectMongo();
-  const email = "admin@shoply.local";
+  const email = "admin@hydrange.local";
   const exists = await User.findOne({ email }).lean();
   if (exists) { console.log("Admin existed"); process.exit(0); }
   const passwordHash = await hashPassword("admin123");

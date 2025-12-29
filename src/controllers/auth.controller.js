@@ -15,7 +15,7 @@ async function sendRegisterOTP(req, res, next) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await OTP.findOneAndUpdate({ email, type: "register" }, { otp }, { upsert: true });
 
-    await sendOTPEmail(email, otp, "Xác nhận đăng ký - HYDRANGE");
+    await sendOTPEmail(email, otp, "Xác nhận đăng ký - hydrange");
     return res.json({ ok: true, message: "Mã xác nhận đã được gửi đến email của bạn" });
   } catch (err) {
     next(err);
@@ -98,7 +98,7 @@ async function forgotPassword(req, res, next) {
       { upsert: true }
     );
 
-    await sendOTPEmail(email, otp, "Khôi phục mật khẩu - HYDRANGE");
+    await sendOTPEmail(email, otp, "Khôi phục mật khẩu - hydrange");
     return res.json({ ok: true, message: "Mã khôi phục đã được gửi" });
   } catch (err) {
     next(err);
