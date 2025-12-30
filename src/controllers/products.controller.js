@@ -1,5 +1,6 @@
 // src/controllers/products.controller.js
 const { Product } = require("../models/product.model");
+const { Review } = require("../models/review.model");
 
 // Lấy danh sách (có lọc & phân trang)
 async function getProducts(req, res, next) {
@@ -54,7 +55,10 @@ async function getProductBySlug(req, res, next) {
     }
 
     if (!product) return res.status(404).json({ ok: false, error: "Not found" });
-    res.json({ ok: true, product });
+
+    const reviews = await Review.find({ product: product._id }).populate('user', 'name').lean();
+
+    res.json({ ok: true, product: { ...product, reviews } });
   } catch (err) { next(err); }
 }
 
