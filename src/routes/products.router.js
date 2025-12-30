@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const { requireAuth, requireRole } = require("../middlewares/auth");
+
+// SỬA TẠI ĐÂY: Đổi 'getProducts' thành 'getAllProducts' để khớp với controller
 const { 
-  getProducts, 
+  getAllProducts, 
   getProductBySlug, 
   createProduct, 
   updateProduct, 
@@ -10,7 +12,8 @@ const {
 } = require("../controllers/products.controller");
 
 // Public
-router.get("/", getProducts);
+// SỬA TẠI ĐÂY: Gọi 'getAllProducts'
+router.get("/", getAllProducts);
 router.get("/slug/:slug", getProductBySlug); // Frontend gọi cái này
 
 // Admin Only

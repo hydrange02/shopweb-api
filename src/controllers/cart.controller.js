@@ -1,111 +1,98 @@
 // src/controllers/cart.controller.js
 const { Cart } = require("../models/cart.model");
-const { Product } = require("../models/product.model");
+const { asyncHandler } = require("../utils/async");
 
-// 1. Lấy giỏ hàng của user hiện tại
-async function getCart(req, res, next) {
-  try {
-    const userId = req.user.sub; // Lấy từ token (middleware requireAuth)
-    let cart = await Cart.findOne({ userId }).populate("items.productId", "title price images slug");
+// 1. LẤY GIỎ HÀNG
+const getCart = asyncHandler(async (req, res) => {
+  const userId = req.user.sub; // Hoặc req.user.id tùy middleware auth của bạn
+  const cart = await Cart.findOne({ userId }).populate("items.productId");
 
-    if (!cart) {
-      // Nếu chưa có, trả về mảng rỗng (hoặc tự tạo mới tùy logic FE)
-      return res.json({ ok: true, items: [] });
-    }
-
-    return res.json({ ok: true, items: cart.items });
-  } catch (err) {
-    next(err);
+  if (!cart) {
+    return res.status(200).json({ items: [] });
   }
-}
+  res.status(200).json(cart);
+});
 
-// 2. Thêm sản phẩm vào giỏ
-async function addToCart(req, res, next) {
-  try {
-    const userId = req.user.sub;
-    const { productId, quantity, selectedSize } = req.body;
+// 2. THÊM VÀO GIỎ
+const addToCart = asyncHandler(async (req, res) => {
+  const { productId, quantity, selectedSize } = req.body;
+  const userId = req.user.sub;
 
-    // Kiểm tra sản phẩm có tồn tại không
-    const product = await Product.findById(productId);
-    if (!product) return res.status(404).json({ ok: false, message: "Sản phẩm không tồn tại" });
+  let cart = await Cart.findOne({ userId });
 
-    // Tìm giỏ hàng của user
-    let cart = await Cart.findOne({ userId });
-
-    if (!cart) {
-      // Nếu chưa có giỏ -> tạo mới
-      cart = await Cart.create({
-        userId,
-        items: [{ productId, quantity, selectedSize }]
-      });
-    } else {
-      // Nếu đã có giỏ -> kiểm tra sản phẩm trùng (cùng ID và cùng Size)
-      const itemIndex = cart.items.findIndex(p => 
-        p.productId.toString() === productId && p.selectedSize === selectedSize
-      );
-
-      if (itemIndex > -1) {
-        // Đã có -> cộng dồn số lượng
-        cart.items[itemIndex].quantity += quantity;
-      } else {
-        // Chưa có -> push vào mảng
-        cart.items.push({ productId, quantity, selectedSize });
-      }
-      await cart.save();
-    }
-
-    return res.json({ ok: true, message: "Đã thêm vào giỏ hàng", cart });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// 3. Cập nhật số lượng item
-async function updateCartItem(req, res, next) {
-  try {
-    const userId = req.user.sub;
-    const { productId, quantity, selectedSize } = req.body;
-
-    const cart = await Cart.findOne({ userId });
-    if (!cart) return res.status(404).json({ ok: false, message: "Giỏ hàng trống" });
-
-    const itemIndex = cart.items.findIndex(p => 
-        p.productId.toString() === productId && p.selectedSize === selectedSize
+  if (!cart) {
+    cart = await Cart.create({
+      userId,
+      items: [{ productId, quantity, selectedSize }],
+    });
+  } else {
+    // Tìm item trùng cả ProductId và Size
+    const itemIndex = cart.items.findIndex(
+      (p) => 
+        p.productId.toString() === productId && 
+        p.selectedSize === selectedSize
     );
 
     if (itemIndex > -1) {
-      if (quantity > 0) {
-        cart.items[itemIndex].quantity = quantity;
-      } else {
-        // Nếu số lượng <= 0 thì xóa luôn
-        cart.items.splice(itemIndex, 1);
-      }
-      await cart.save();
+      cart.items[itemIndex].quantity += quantity;
+    } else {
+      cart.items.push({ productId, quantity, selectedSize });
     }
-
-    return res.json({ ok: true, cart });
-  } catch (err) {
-    next(err);
+    await cart.save();
   }
-}
 
-// 4. Xóa item khỏi giỏ
-async function removeCartItem(req, res, next) {
-  try {
-    const userId = req.user.sub;
-    const { productId, selectedSize } = req.body;
+  res.status(200).json(cart);
+});
 
-    const cart = await Cart.findOne({ userId });
-    if (cart) {
-      cart.items = cart.items.filter(p => 
-        !(p.productId.toString() === productId && p.selectedSize === selectedSize)
-      );
-      await cart.save();
-    }
-    return res.json({ ok: true, cart });
-  } catch (err) {
-    next(err);
+// 3. CẬP NHẬT SỐ LƯỢNG (Hàm mới thêm để fix lỗi)
+const updateCartItem = asyncHandler(async (req, res) => {
+  const { productId, quantity, selectedSize } = req.body;
+  const userId = req.user.sub;
+
+  const cart = await Cart.findOne({ userId });
+  if (!cart) {
+    return res.status(404).json({ message: "Giỏ hàng không tồn tại" });
   }
-}
 
-module.exports = { getCart, addToCart, updateCartItem, removeCartItem };
+  const itemIndex = cart.items.findIndex(
+    (item) => 
+      item.productId.toString() === productId && 
+      item.selectedSize === selectedSize
+  );
+
+  if (itemIndex > -1) {
+    cart.items[itemIndex].quantity = quantity;
+    await cart.save();
+  }
+
+  // Populate để trả về data đầy đủ (hình ảnh, tên...) cho frontend cập nhật ngay
+  await cart.populate("items.productId");
+  res.status(200).json(cart);
+});
+
+// 4. XÓA SẢN PHẨM (Đổi tên từ removeFromCart -> removeCartItem cho khớp Router)
+const removeCartItem = asyncHandler(async (req, res) => {
+  const { productId, selectedSize } = req.body;
+  const userId = req.user.sub;
+
+  const cart = await Cart.findOne({ userId });
+  if (cart) {
+    cart.items = cart.items.filter(
+      (item) => 
+        !(item.productId.toString() === productId && item.selectedSize === selectedSize)
+    );
+    await cart.save();
+  }
+  
+  // Trả về cart mới nhất
+  if (cart) await cart.populate("items.productId");
+  res.status(200).json(cart || { items: [] });
+});
+
+// Xuất đúng tên hàm mà Router đang gọi
+module.exports = { 
+  getCart, 
+  addToCart, 
+  updateCartItem, 
+  removeCartItem 
+};

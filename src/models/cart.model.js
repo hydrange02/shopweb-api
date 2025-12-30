@@ -5,9 +5,10 @@ const CartItemSchema = new Schema(
   {
     productId: { type: Types.ObjectId, ref: "Product", required: true },
     quantity: { type: Number, required: true, min: 1, default: 1 },
-    selectedSize: { type: String }, // Lưu size nếu có
+    // 🟢 Lưu size đã chọn
+    selectedSize: { type: String }, 
   },
-  { _id: false } // Không cần ID riêng cho từng item trong mảng
+  { _id: false }
 );
 
 const CartSchema = new Schema(

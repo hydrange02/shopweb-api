@@ -1,93 +1,141 @@
 // src/controllers/products.controller.js
 const { Product } = require("../models/product.model");
+const { asyncHandler } = require("../utils/async");
 
-// Lấy danh sách (có lọc & phân trang)
-async function getProducts(req, res, next) {
-  try {
-    const page = Math.max(parseInt(req.query.page || "1"), 1);
-    const limit = parseInt(req.query.limit || "12");
-    const { category, q, minPrice, maxPrice, sort } = req.query;
+/**
+ * 1. LẤY DANH SÁCH SẢN PHẨM (Có lọc, tìm kiếm, phân trang)
+ */
+const getAllProducts = asyncHandler(async (req, res) => {
+  // Lấy các tham số từ query string
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 12;
+  const skip = (page - 1) * limit;
 
-    const filter = {};
-    if (category) filter.category = category;
-    if (q) filter.title = { $regex: q, $options: "i" };
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = parseInt(minPrice);
-      if (maxPrice) filter.price.$lte = parseInt(maxPrice);
-    }
+  const { q, category, minPrice, maxPrice, sort } = req.query;
 
-    let sortOption = { createdAt: -1 };
-    if (sort === "price_asc") sortOption = { price: 1 };
-    if (sort === "price_desc") sortOption = { price: -1 };
+  // Xây dựng bộ lọc
+  const filter = {};
 
-    const [total, products] = await Promise.all([
-      Product.countDocuments(filter),
-      Product.find(filter)
-        .sort(sortOption)
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-    ]);
+  // Tìm kiếm theo tên
+  if (q) {
+    filter.title = { $regex: q, $options: "i" };
+  }
 
-    // 🔥 LOGIC QUAN TRỌNG: Kiểm tra xem còn trang sau không
-    const hasNext = page * limit < total;
+  // Lọc theo danh mục
+  if (category && category !== "all") {
+    filter.category = category;
+  }
 
-    res.json({ 
-      ok: true, 
-      data: products, 
-      page, 
-      limit, 
-      total,
-      hasNext // <-- Frontend cần biến này để bật sáng nút "Tiếp theo"
-    });
-  } catch (err) { next(err); }
-}
+  // Lọc theo khoảng giá
+  if (minPrice || maxPrice) {
+    filter.price = {};
+    if (minPrice) filter.price.$gte = Number(minPrice);
+    if (maxPrice) filter.price.$lte = Number(maxPrice);
+  }
 
-// Lấy chi tiết 1 sản phẩm
-async function getProductBySlug(req, res, next) {
-  try {
-    const { slug } = req.params;
-    let product = await Product.findOne({ slug }).lean();
-    if (!product && slug.match(/^[0-9a-fA-F]{24}$/)) {
-      product = await Product.findById(slug).lean();
-    }
+  // Xây dựng sắp xếp
+  let sortOption = { createdAt: -1 }; // Mặc định mới nhất
+  if (sort === "price_asc") sortOption = { price: 1 };
+  if (sort === "price_desc") sortOption = { price: -1 };
+  if (sort === "best_selling") sortOption = { sold: -1 };
 
-    if (!product) return res.status(404).json({ ok: false, error: "Not found" });
-    res.json({ ok: true, product });
-  } catch (err) { next(err); }
-}
+  // Thực hiện query song song (đếm tổng + lấy data)
+  const [products, total] = await Promise.all([
+    Product.find(filter)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limit)
+      .lean(), 
+    Product.countDocuments(filter),
+  ]);
 
-// Thêm sản phẩm
-async function createProduct(req, res, next) {
-  try {
-    const body = req.body;
-    if (!body.slug && body.title) {
-       body.slug = body.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
-    }
-    const product = await Product.create(body);
-    res.status(201).json({ ok: true, product });
-  } catch (err) { next(err); }
-}
+  // 🔥 SỬA QUAN TRỌNG TẠI ĐÂY:
+  // Đổi cấu trúc JSON trả về để Frontend đọc được
+  res.status(200).json({
+    data: products,                // Frontend tìm 'data.data' nên chỗ này phải tên là 'data'
+    page,
+    limit,
+    total,
+    hasNext: page * limit < total, // Frontend cần biến này để hiện nút "Tiếp theo"
+    totalPages: Math.ceil(total / limit),
+  });
+});
 
-// Sửa sản phẩm
-async function updateProduct(req, res, next) {
-  try {
-    const { id } = req.params;
-    const product = await Product.findByIdAndUpdate(id, req.body, { new: true });
-    if (!product) return res.status(404).json({ ok: false, error: "Product not found" });
-    res.json({ ok: true, product });
-  } catch (err) { next(err); }
-}
+/**
+ * 2. LẤY CHI TIẾT SẢN PHẨM THEO SLUG (Cho trang chi tiết)
+ */
+const getProductBySlug = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const product = await Product.findOne({ slug });
 
-// Xóa sản phẩm
-async function deleteProduct(req, res, next) {
-  try {
-    const { id } = req.params;
-    const product = await Product.findByIdAndDelete(id);
-    if (!product) return res.status(404).json({ ok: false, error: "Product not found" });
-    res.json({ ok: true, deletedId: id });
-  } catch (err) { next(err); }
-}
+  if (!product) {
+    return res.status(404).json({ ok: false, message: "Sản phẩm không tồn tại" });
+  }
 
-module.exports = { getProducts, getProductBySlug, createProduct, updateProduct, deleteProduct };
+  // 🔥 SỬA: Bọc product vào object { ok: true, product: ... }
+  res.status(200).json({ ok: true, product });
+});
+
+/**
+ * 3. LẤY CHI TIẾT SẢN PHẨM THEO ID
+ */
+const getProductById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const product = await Product.findById(id);
+
+  if (!product) {
+    return res.status(404).json({ ok: false, message: "Sản phẩm không tồn tại" });
+  }
+
+  res.status(200).json({ ok: true, product });
+});
+
+/**
+ * 4. TẠO SẢN PHẨM MỚI
+ */
+const createProduct = asyncHandler(async (req, res) => {
+  const product = await Product.create(req.body);
+  // 🔥 SỬA: Bọc kết quả trả về
+  res.status(201).json({ ok: true, product });
+});
+
+/**
+ * 5. CẬP NHẬT SẢN PHẨM
+ */
+const updateProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  
+  const product = await Product.findById(id);
+  if (!product) {
+    return res.status(404).json({ ok: false, message: "Sản phẩm không tồn tại" });
+  }
+
+  Object.assign(product, req.body);
+  await product.save();
+
+  // 🔥 SỬA: Bọc kết quả trả về
+  res.status(200).json({ ok: true, product });
+});
+
+/**
+ * 6. XÓA SẢN PHẨM
+ */
+const deleteProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const product = await Product.findByIdAndDelete(id);
+
+  if (!product) {
+    return res.status(404).json({ message: "Sản phẩm không tồn tại" });
+  }
+
+  res.status(200).json({ message: "Đã xóa sản phẩm thành công" });
+});
+
+module.exports = {
+  getAllProducts,
+  getProductBySlug,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+};

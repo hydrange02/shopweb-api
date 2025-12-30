@@ -8,17 +8,17 @@ const OrderItemSchema = new Schema(
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     image: { type: String },
-    size: { type: String },
+    // 🟢 Dùng selectedSize để khớp với Frontend
+    selectedSize: { type: String }, 
   },
   { _id: false }
 );
 
 const OrderSchema = new Schema(
   {
-    // 🔥 MỚI: Liên kết với User (nếu đã đăng nhập)
-    userId: { type: Types.ObjectId, ref: "User", index: true },
-    
+    userId: { type: Types.ObjectId, ref: "User", index: true }, // Link tới User nếu có
     items: { type: [OrderItemSchema], required: true },
+    
     subtotal: { type: Number, required: true, min: 0 },
     shippingFee: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
@@ -38,7 +38,7 @@ const OrderSchema = new Schema(
   { timestamps: true, versionKey: false }
 );
 
-OrderSchema.index({ createdAt: -1 });
+// Tự động tạo field 'id' từ '_id' khi trả về JSON
 OrderSchema.set("toJSON", {
   virtuals: true,
   transform: (_doc, ret) => { ret.id = ret._id; return ret; },

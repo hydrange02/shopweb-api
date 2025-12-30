@@ -8,9 +8,12 @@ const authRouter = require("./routes/auth.router");
 const productsRouter = require("./routes/products.router");
 const ordersRouter = require("./routes/orders.router");
 const cartRouter = require("./routes/cart.router");
+
+// 🔥 FIX: Import trực tiếp (không dùng { }) vì bên kia export thẳng router
+const reviewRouter = require("./routes/review.router");
+
 const app = express();
 
-// 1. Cấu hình bảo mật và Middleware cơ bản
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ 
   origin: process.env.CORS_ORIGIN || "http://localhost:3000", 
@@ -19,45 +22,34 @@ app.use(cors({
 app.use(express.json({ limit: "10kb" }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
-// 2. Đăng ký các API Routes chính thức
-// Gắn tiền tố /api/v1 để khớp với Frontend
+// Routes
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/products", productsRouter);
 app.use("/api/v1/orders", ordersRouter);
 app.use("/api/v1/cart", cartRouter);
 
-// 3. Các route tiện ích khác (Health check)
-const utilityRouter = express.Router();
-utilityRouter.get("/health", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: "hydrange-api",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
-app.use("/api/v1", utilityRouter);
+// 🔥 Route review gắn vào /api/v1 (các path con đã định nghĩa bên trong router)
+app.use("/api/v1", reviewRouter);
 
-// Trang chủ API
+// Health check
+app.get("/api/v1/health", (req, res) => {
+  res.status(200).json({ ok: true, service: "hydrange-api" });
+});
+
 app.get("/", (req, res) => {
   res.json({ ok: true, service: "hydrange-api", version: "v1" });
 });
 
-// 4. Xử lý lỗi 404 (Khi không khớp bất kỳ route nào bên trên)
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({
     ok: false,
-    error: { 
-      code: "NOT_FOUND", 
-      message: "Route not found", 
-      path: req.originalUrl 
-    },
+    error: { code: "NOT_FOUND", message: "Route not found" },
   });
 });
 
-// 5. Xử lý lỗi tập trung (Error Handler)
+// Error Handler
 app.use((err, req, res, next) => {
-  if (res.headersSent) return next(err);
   const status = err.status || 500;
   res.status(status).json({ 
     ok: false, 
