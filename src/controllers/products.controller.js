@@ -66,13 +66,29 @@ const getAllProducts = asyncHandler(async (req, res) => {
  */
 const getProductBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const product = await Product.findOne({ slug });
+  const mongoose = require("mongoose");
 
-  if (!product) {
-    return res.status(404).json({ ok: false, message: "Sản phẩm không tồn tại" });
+  // Bước 1: Kiểm tra xem tham số gửi lên là ID hay là Slug chữ
+  const isId = mongoose.Types.ObjectId.isValid(slug);
+
+  let product;
+  if (isId) {
+    // Nếu là ID (Trường hợp Admin bấm nút Sửa)
+    product = await Product.findById(slug);
+  } else {
+    // Nếu là chuỗi chữ (Trường hợp khách xem trang chi tiết ngoài web)
+    product = await Product.findOne({ slug });
   }
 
-  // 🔥 SỬA: Bọc product vào object { ok: true, product: ... }
+  // Bước 2: Trả về lỗi nếu không thấy
+  if (!product) {
+    return res.status(404).json({ 
+      ok: false, 
+      message: "Sản phẩm không tồn tại" 
+    });
+  }
+
+  // Bước 3: Trả về đúng cấu trúc { ok: true, product: ... } để Frontend bóc tách được
   res.status(200).json({ ok: true, product });
 });
 
