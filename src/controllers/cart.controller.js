@@ -4,7 +4,7 @@ const { asyncHandler } = require("../utils/async");
 
 // 1. LẤY GIỎ HÀNG
 const getCart = asyncHandler(async (req, res) => {
-  const userId = req.user.sub; // Hoặc req.user.id tùy middleware auth của bạn
+  const userId = req.user.id || req.user.sub || req.user._id; // Hoặc req.user.id tùy middleware auth của bạn
   const cart = await Cart.findOne({ userId }).populate("items.productId");
 
   if (!cart) {
@@ -16,7 +16,7 @@ const getCart = asyncHandler(async (req, res) => {
 // 2. THÊM VÀO GIỎ
 const addToCart = asyncHandler(async (req, res) => {
   const { productId, quantity, selectedSize } = req.body;
-  const userId = req.user.sub;
+  const userId = req.user.id || req.user.sub || req.user._id;
 
   let cart = await Cart.findOne({ userId });
 
@@ -47,7 +47,7 @@ const addToCart = asyncHandler(async (req, res) => {
 // 3. CẬP NHẬT SỐ LƯỢNG (Hàm mới thêm để fix lỗi)
 const updateCartItem = asyncHandler(async (req, res) => {
   const { productId, quantity, selectedSize } = req.body;
-  const userId = req.user.sub;
+  const userId = req.user.id || req.user.sub || req.user._id;
 
   const cart = await Cart.findOne({ userId });
   if (!cart) {
@@ -73,7 +73,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
 // 4. XÓA SẢN PHẨM (Đổi tên từ removeFromCart -> removeCartItem cho khớp Router)
 const removeCartItem = asyncHandler(async (req, res) => {
   const { productId, selectedSize } = req.body;
-  const userId = req.user.sub;
+  const userId = req.user.id || req.user.sub || req.user._id;
 
   const cart = await Cart.findOne({ userId });
   if (cart) {
