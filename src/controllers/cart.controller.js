@@ -4,12 +4,21 @@ const { asyncHandler } = require("../utils/async");
 
 // 1. LẤY GIỎ HÀNG
 const getCart = asyncHandler(async (req, res) => {
-  const userId = req.user.id || req.user.sub || req.user._id; // Hoặc req.user.id tùy middleware auth của bạn
-  const cart = await Cart.findOne({ userId }).populate("items.productId");
+  const userId = req.user.id || req.user.sub || req.user._id;
+  
+  // Thêm try-catch hoặc xử lý an toàn cho findOne
+  const cart = await Cart.findOne({ userId });
 
   if (!cart) {
     return res.status(200).json({ items: [] });
   }
+
+  try {
+    await cart.populate("items.productId");
+  } catch (err) {
+    console.error("GetCart Populate Error:", err);
+  }
+
   res.status(200).json(cart);
 });
 
@@ -26,11 +35,8 @@ const addToCart = asyncHandler(async (req, res) => {
       items: [{ productId, quantity, selectedSize }],
     });
   } else {
-    // Tìm item trùng cả ProductId và Size
     const itemIndex = cart.items.findIndex(
-      (p) => 
-        p.productId.toString() === productId && 
-        p.selectedSize === selectedSize
+      (p) => p.productId.toString() === productId && p.selectedSize === selectedSize
     );
 
     if (itemIndex > -1) {
@@ -39,12 +45,19 @@ const addToCart = asyncHandler(async (req, res) => {
       cart.items.push({ productId, quantity, selectedSize });
     }
     await cart.save();
-  } 
+  }
 
+  // 🔥 QUAN TRỌNG: Phải populate trước khi res.json để Frontend không bị lỗi hiển thị
+  try {
+    await cart.populate("items.productId");
+  } catch (err) {
+    console.error("AddToCart Populate Error:", err);
+  }
+  
   res.status(200).json(cart);
 });
 
-// 3. CẬP NHẬT SỐ LƯỢNG (Hàm mới thêm để fix lỗi)
+// 3. CẬP NHẬT SỐ LƯỢNG
 const updateCartItem = asyncHandler(async (req, res) => {
   const { productId, quantity, selectedSize } = req.body;
   const userId = req.user.id || req.user.sub || req.user._id;
@@ -55,9 +68,7 @@ const updateCartItem = asyncHandler(async (req, res) => {
   }
 
   const itemIndex = cart.items.findIndex(
-    (item) => 
-      item.productId.toString() === productId && 
-      item.selectedSize === selectedSize
+    (item) => item.productId.toString() === productId && item.selectedSize === selectedSize
   );
 
   if (itemIndex > -1) {
@@ -65,12 +76,15 @@ const updateCartItem = asyncHandler(async (req, res) => {
     await cart.save();
   }
 
-  // Populate để trả về data đầy đủ (hình ảnh, tên...) cho frontend cập nhật ngay
-  await cart.populate("items.productId");
+  try {
+    await cart.populate("items.productId");
+  } catch (error) {
+    console.error("UpdateCart Populate error:", error);
+  }
   res.status(200).json(cart);
 });
 
-// 4. XÓA SẢN PHẨM (Đổi tên từ removeFromCart -> removeCartItem cho khớp Router)
+// 4. XÓA SẢN PHẨM
 const removeCartItem = asyncHandler(async (req, res) => {
   const { productId, selectedSize } = req.body;
   const userId = req.user.id || req.user.sub || req.user._id;
@@ -78,21 +92,18 @@ const removeCartItem = asyncHandler(async (req, res) => {
   const cart = await Cart.findOne({ userId });
   if (cart) {
     cart.items = cart.items.filter(
-      (item) => 
-        !(item.productId.toString() === productId && item.selectedSize === selectedSize)
+      (item) => !(item.productId.toString() === productId && item.selectedSize === selectedSize)
     );
     await cart.save();
+    
+    try {
+      await cart.populate("items.productId");
+    } catch (err) {
+      console.error("RemoveItem Populate error:", err);
+    }
   }
   
-  // Trả về cart mới nhất
-  if (cart) await cart.populate("items.productId");
   res.status(200).json(cart || { items: [] });
 });
 
-// Xuất đúng tên hàm mà Router đang gọi
-module.exports = { 
-  getCart, 
-  addToCart, 
-  updateCartItem, 
-  removeCartItem 
-};
+module.exports = { getCart, addToCart, updateCartItem, removeCartItem };
