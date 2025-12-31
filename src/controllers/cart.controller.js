@@ -39,7 +39,7 @@ const addToCart = asyncHandler(async (req, res) => {
       cart.items.push({ productId, quantity, selectedSize });
     }
     await cart.save();
-  }
+  } 
 
   res.status(200).json(cart);
 });
